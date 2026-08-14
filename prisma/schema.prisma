@@ -1,0 +1,173 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String                   @id @default(uuid())
+  name             String
+  email            String                   @unique
+  password         String
+  role             String                   @default("STUDENT")
+  hasDiplomaAccess Boolean                  @default(false)
+  phone            String?
+  bio              String?
+  avatar           String?
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  certificates     Certificate[]
+  enrollments      Enrollment[]
+  adminPermissions AdminPermission[]
+  lessonProgress   StudentLessonProgress[]
+  unlockedModules  StudentModuleUnlock[]
+  customAssignments CustomStudentAssignment[]
+}
+
+model AdminPermission {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permissionKey String
+  createdAt     DateTime @default(now())
+
+  @@unique([userId, permissionKey])
+}
+
+model Certificate {
+  id            String   @id @default(uuid())
+  title         String
+  issueDate     DateTime @default(now())
+  code          String   @unique
+  credentialUrl String?
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Enrollment {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId  String   @default("venture-architect-diploma")
+  pricePaid Float    @default(5000)
+  currency  String   @default("LE")
+  status    String   @default("ACTIVE")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, courseId])
+}
+
+model DiplomaModule {
+  id            String                @id @default(uuid())
+  moduleNumber  String
+  title         String
+  badgeTitle    String
+  description   String
+  objective     String?
+  durationHours Int                   @default(15)
+  orderIndex    Int                   @default(0)
+  isPublished   Boolean               @default(true)
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  lessons       DiplomaLesson[]
+  resources     ModuleResource[]
+  quizzes       ModuleQuiz[]
+  moduleUnlocks StudentModuleUnlock[]
+}
+
+model DiplomaLesson {
+  id             String                  @id @default(uuid())
+  moduleId       String
+  module         DiplomaModule           @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  lessonNumber   Int
+  title          String
+  desc           String
+  duration       String
+  videoUrl       String                  @default("https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4")
+  videoProvider  String?                 @default("BUNNY")
+  transcript     String?
+  articleContent String?
+  isFreePreview  Boolean                 @default(false)
+  materials      Json?
+  orderIndex     Int                     @default(0)
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+  progress       StudentLessonProgress[]
+}
+
+model ModuleResource {
+  id          String        @id @default(uuid())
+  moduleId    String
+  module      DiplomaModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  title       String
+  fileUrl     String
+  fileType    String        @default("PDF")
+  fileSize    String        @default("1.5 MB")
+  description String?
+  createdAt   DateTime      @default(now())
+}
+
+model ModuleQuiz {
+  id           String        @id @default(uuid())
+  moduleId     String
+  module       DiplomaModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  title        String
+  passingScore Int           @default(80)
+  questions    Json
+  createdAt    DateTime      @default(now())
+}
+
+model StudentLessonProgress {
+  id               String        @id @default(uuid())
+  userId           String
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId         String
+  lesson           DiplomaLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  isCompleted      Boolean       @default(false)
+  watchDurationSec Int           @default(0)
+  completedAt      DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@unique([userId, lessonId])
+}
+
+model StudentModuleUnlock {
+  id         String        @id @default(uuid())
+  userId     String
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  moduleId   String
+  module     DiplomaModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  unlockedBy String
+  notes      String?
+  createdAt  DateTime      @default(now())
+
+  @@unique([userId, moduleId])
+}
+
+model CustomStudentAssignment {
+  id            String    @id @default(uuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignedBy    String
+  title         String
+  description   String
+  attachmentUrl String?
+  dueDate       DateTime?
+  status        String    @default("PENDING")
+  submissionUrl String?
+  feedback      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+
+
+
