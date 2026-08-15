@@ -71,8 +71,10 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     userId: string,
     payload: {
       userId: string;
-      moduleId: string;
+      moduleId?: string;
       originalModuleId?: string;
+      moduleNumber?: string | number;
+      lessonId?: string;
       isUnlocked: boolean;
       moduleTitle?: string;
       notes?: string;

@@ -8,7 +8,7 @@ import { JwtModule } from '@nestjs/jwt';
   imports: [
     PrismaModule,
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'timevalley_super_secret_jwt_key_2026',
+      secret: process.env.JWT_SECRET || 'timevalley_jwt_secret_key_2026',
     }),
   ],
   controllers: [CoursesController],

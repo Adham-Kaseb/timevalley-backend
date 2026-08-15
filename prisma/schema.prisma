@@ -347,7 +347,19 @@ model ContactSubmission {
   createdAt DateTime @default(now())
 }
 
-
-
-
-
+model Coupon {
+  id                 String    @id @default(uuid())
+  code               String    @unique
+  discountType       String    @default("FIXED") // FIXED or PERCENTAGE
+  discountValue      Float     @default(500)
+  minPurchaseAmount  Float     @default(0)
+  validFrom          DateTime  @default(now())
+  validUntil         DateTime?
+  maxRedemptions     Int?      // null = unlimited
+  timesRedeemed      Int       @default(0)
+  allowStacking      Boolean   @default(false)
+  applicableScope    String    @default("DIPLOMA")
+  status             String    @default("ACTIVE") // ACTIVE, DISABLED, EXPIRED
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+}

@@ -13,6 +13,7 @@ import { TeamsModule } from './modules/teams/teams.module';
 import { EventsModule } from './modules/events/events.module';
 import { ResourcesModule } from './modules/resources/resources.module';
 import { IdeationModule } from './modules/ideation/ideation.module';
+import { CouponsModule } from './modules/coupons/coupons.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { IdeationModule } from './modules/ideation/ideation.module';
     EventsModule,
     ResourcesModule,
     IdeationModule,
+    CouponsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

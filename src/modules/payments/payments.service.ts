@@ -1,15 +1,45 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventsGateway } from '../socket/events.gateway';
+import { CouponsService } from '../coupons/coupons.service';
 
 @Injectable()
 export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventsGateway: EventsGateway,
+    private readonly couponsService: CouponsService,
   ) {}
 
   async purchaseDiploma(userId: string, paymentDetails?: any) {
+    const rawAmount = Number(paymentDetails?.amount) || 5000;
+    const paymentMethod = paymentDetails?.paymentMethod || paymentDetails?.method || 'CARD';
+    const senderRef = paymentDetails?.senderRef || paymentDetails?.reference || '';
+    const promoCode = paymentDetails?.promoCode || '';
+
+    // Calculate effective price & discounts dynamically via CouponsService
+    let finalAmount = rawAmount;
+    let discountApplied = 0;
+    if (promoCode) {
+      try {
+        const validated = await this.couponsService.validateCoupon(promoCode, rawAmount, 'DIPLOMA');
+        if (validated && validated.isValid) {
+          discountApplied = validated.discountAmount;
+          finalAmount = validated.finalPrice;
+          await this.couponsService.recordRedemption(promoCode);
+        }
+      } catch (err: any) {
+        console.warn('Coupon validation fallback during payment:', err?.message);
+        if (promoCode.toUpperCase() === 'FOUNDER2026') {
+          discountApplied = 500;
+          finalAmount = Math.max(0, rawAmount - 500);
+        } else if (promoCode.toUpperCase() === 'EARLYBIRD') {
+          discountApplied = 1000;
+          finalAmount = Math.max(0, rawAmount - 1000);
+        }
+      }
+    }
+
     // Check existing active enrollment
     const existing = await (this.prisma as any).enrollment.findUnique({
       where: {
@@ -25,6 +55,8 @@ export class PaymentsService {
         message: 'تم تفعيل الدبلومة بنجاح من قبل',
         enrollment: existing,
         hasPurchasedDiploma: true,
+        transactionRef: existing.id || `TXN-${Date.now()}`,
+        finalAmount: existing.pricePaid || 5000,
       };
     }
 
@@ -34,7 +66,7 @@ export class PaymentsService {
       data: { hasDiplomaAccess: true },
     }).catch(() => {});
 
-    // Create or update enrollment for 5000 LE
+    // Create or update enrollment
     const enrollment = await (this.prisma as any).enrollment.upsert({
       where: {
         userId_courseId: {
@@ -44,29 +76,28 @@ export class PaymentsService {
       },
       update: {
         status: 'ACTIVE',
-        pricePaid: 5000,
+        pricePaid: finalAmount,
         currency: 'LE',
       },
       create: {
         userId,
         courseId: 'venture-architect-diploma',
-        pricePaid: 5000,
+        pricePaid: finalAmount,
         currency: 'LE',
         status: 'ACTIVE',
       },
     });
 
     // Create transaction log
-    const transactionRef = `TXN-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
-    const paymentMethod = paymentDetails?.method || 'CARD';
+    const transactionRef = senderRef ? `TXN-${senderRef.toUpperCase()}-${Date.now().toString().slice(-4)}` : `TXN-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
     await (this.prisma as any).paymentTransaction.create({
       data: {
         userId,
         courseId: 'venture-architect-diploma',
-        amount: 5000,
+        amount: finalAmount,
         currency: 'LE',
-        paymentMethod,
+        paymentMethod: paymentMethod.toUpperCase(),
         transactionRef,
         status: 'SUCCESS',
       },
@@ -81,10 +112,14 @@ export class PaymentsService {
     });
 
     return {
-      message: 'تم شراء وتفعيل الدبلومة بنجاح بمبلغ 5,000 ج.م',
+      message: `تم شراء وتفعيل الدبلومة بنجاح بمبلغ ${finalAmount.toLocaleString()} ج.م`,
       enrollment,
       transactionRef,
+      paymentMethod: paymentMethod.toUpperCase(),
+      finalAmount,
+      discountApplied,
       hasPurchasedDiploma: true,
+      timestamp: new Date().toISOString(),
     };
   }
 }
