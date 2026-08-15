@@ -11,23 +11,37 @@ datasource db {
 }
 
 model User {
-  id               String                   @id @default(uuid())
-  name             String
-  email            String                   @unique
-  password         String
-  role             String                   @default("STUDENT")
-  hasDiplomaAccess Boolean                  @default(false)
-  phone            String?
-  bio              String?
-  avatar           String?
-  createdAt        DateTime                 @default(now())
-  updatedAt        DateTime                 @updatedAt
-  certificates     Certificate[]
-  enrollments      Enrollment[]
-  adminPermissions AdminPermission[]
-  lessonProgress   StudentLessonProgress[]
-  unlockedModules  StudentModuleUnlock[]
-  customAssignments CustomStudentAssignment[]
+  id                  String                    @id @default(uuid())
+  name                String
+  email               String                    @unique
+  password            String
+  role                String                    @default("STUDENT")
+  hasDiplomaAccess     Boolean                   @default(false)
+  phone               String?
+  bio                 String?
+  avatar              String?
+  studentId           String?
+  companyName         String?
+  linkedinUrl         String?
+  githubUrl           String?
+  targetSector        String?
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+  certificates        Certificate[]
+  enrollments         Enrollment[]
+  adminPermissions    AdminPermission[]
+  lessonProgress      StudentLessonProgress[]
+  unlockedModules     StudentModuleUnlock[]
+  unlockedLessons     StudentLessonUnlock[]
+  customAssignments   CustomStudentAssignment[]
+  recruitingTeams     RecruitingTeam[]
+  teamApplications    TeamApplication[]
+  eventRsvps          EventRSVP[]
+  resourceDownloads   ResourceDownloadLog[]
+  ventureIdeas        VentureIdea[]
+  marketCalculations  MarketResearchCalculation[]
+  quizResults         StudentQuizResult[]
+  paymentTransactions PaymentTransaction[]
 }
 
 model AdminPermission {
@@ -100,6 +114,7 @@ model DiplomaLesson {
   createdAt      DateTime                @default(now())
   updatedAt      DateTime                @updatedAt
   progress       StudentLessonProgress[]
+  lessonUnlocks  StudentLessonUnlock[]
 }
 
 model ModuleResource {
@@ -115,13 +130,14 @@ model ModuleResource {
 }
 
 model ModuleQuiz {
-  id           String        @id @default(uuid())
+  id           String              @id @default(uuid())
   moduleId     String
-  module       DiplomaModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  module       DiplomaModule       @relation(fields: [moduleId], references: [id], onDelete: Cascade)
   title        String
-  passingScore Int           @default(80)
+  passingScore Int                 @default(80)
   questions    Json
-  createdAt    DateTime      @default(now())
+  createdAt    DateTime            @default(now())
+  quizResults  StudentQuizResult[]
 }
 
 model StudentLessonProgress {
@@ -152,6 +168,19 @@ model StudentModuleUnlock {
   @@unique([userId, moduleId])
 }
 
+model StudentLessonUnlock {
+  id         String        @id @default(uuid())
+  userId     String
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId   String
+  lesson     DiplomaLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  unlockedBy String
+  notes      String?
+  createdAt  DateTime      @default(now())
+
+  @@unique([userId, lessonId])
+}
+
 model CustomStudentAssignment {
   id            String    @id @default(uuid())
   userId        String
@@ -167,6 +196,157 @@ model CustomStudentAssignment {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
+
+model RecruitingTeam {
+  id           String            @id @default(uuid())
+  name         String
+  sector       String
+  founderId    String?
+  founder      User?             @relation(fields: [founderId], references: [id], onDelete: SetNull)
+  founderName  String
+  description  String
+  openRoles    Json
+  equitySplit  String
+  status       String            @default("ACTIVE")
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  applications TeamApplication[]
+}
+
+model TeamApplication {
+  id          String         @id @default(uuid())
+  teamId      String
+  team        RecruitingTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appliedRole String
+  coverNote   String?
+  status      String         @default("PENDING")
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+}
+
+model Event {
+  id        String      @id @default(uuid())
+  title     String
+  date      String
+  time      String
+  location  String
+  type      String
+  speakers  String
+  desc      String
+  status    String      @default("RSVP Open")
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  rsvps     EventRSVP[]
+}
+
+model EventRSVP {
+  id         String   @id @default(uuid())
+  eventId    String
+  event      Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userEmail  String
+  ticketCode String   @unique
+  createdAt  DateTime @default(now())
+
+  @@unique([eventId, userId])
+}
+
+model PublicResource {
+  id             String                @id @default(uuid())
+  title          String
+  category       String
+  format         String
+  fileUrl        String
+  desc           String
+  downloadsCount Int                   @default(0)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  downloads      ResourceDownloadLog[]
+}
+
+model ResourceDownloadLog {
+  id         String         @id @default(uuid())
+  resourceId String
+  resource   PublicResource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime       @default(now())
+}
+
+model VentureIdea {
+  id               String   @id @default(uuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title            String
+  sector           String
+  icpTarget        String
+  problemStatement String
+  tamEstimate      String
+  pitchScore       Int      @default(85)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model MarketResearchCalculation {
+  id                 String   @id @default(uuid())
+  userId             String
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title              String
+  tamAmount          String
+  samAmount          String
+  somAmount          String
+  defensibilityScore Int      @default(90)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model StudentQuizResult {
+  id        String     @id @default(uuid())
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quizId    String
+  quiz      ModuleQuiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  score     Int
+  passed    Boolean    @default(false)
+  answers   Json?
+  createdAt DateTime   @default(now())
+
+  @@unique([userId, quizId])
+}
+
+model PaymentTransaction {
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId       String
+  amount         Float
+  currency       String   @default("LE")
+  paymentMethod  String
+  transactionRef String   @unique
+  status         String   @default("SUCCESS")
+  createdAt      DateTime @default(now())
+}
+
+model NewsletterSubscription {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+}
+
+model ContactSubmission {
+  id        String   @id @default(uuid())
+  name      String
+  email     String
+  phone     String?
+  subject   String?
+  message   String
+  type      String   @default("CONTACT")
+  createdAt DateTime @default(now())
+}
+
 
 
 

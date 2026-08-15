@@ -10,4 +10,9 @@ export class ContactController {
   async submitContact(@Body() dto: CreateContactDto) {
     return this.contactService.submitContact(dto);
   }
+
+  @Post('newsletter')
+  async subscribeNewsletter(@Body('email') email: string) {
+    return this.contactService.subscribeNewsletter(email);
+  }
 }

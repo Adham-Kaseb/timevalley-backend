@@ -35,7 +35,43 @@ export class CoursesService implements OnModuleInit {
 
   async onModuleInit() {
     try {
-      this.logger.log('Initializing Courses Module Service...');
+      this.logger.log('Initializing Courses Module Service & Seeding Default Modules...');
+      const defaultModulesData = [
+        { num: '00', title: 'INTRO: Foundation & Day-Zero Orientation', badge: 'INTRO', desc: 'Platform onboarding, Day-Zero founder mindset, venture building methodology, and community rules.' },
+        { num: '01', title: 'MODULE#1 DISCOVERY: Thesis & ICP Validation', badge: 'MODULE#1 DISCOVERY', desc: 'Validate B2B/B2C SaaS theses, conduct ICP customer interviews, and compute TAM/SAM/SOM.' },
+        { num: '02', title: 'MODULE#2 PRODUCT BUILDING: MVP Architecture', badge: 'MODULE#2 PRODUCT BUILDING', desc: 'Rapid prototyping, microservice architecture, Next.js + NestJS boilerplates, and DB modeling.' },
+        { num: '03', title: 'MODULE#3 PMF: Product-Market Fit & Retention', badge: 'MODULE#3 PMF', desc: 'Achieving Product-Market Fit, metric tracking (NPS, retention curves), and feature prioritization.' },
+        { num: '04', title: 'MODULE#4 GTM: Go-To-Market Execution', badge: 'MODULE#4 GTM', desc: 'Go-To-Market execution, inbound/outbound funnels, pricing strategy, and initial sales playbook.' },
+        { num: '05', title: 'MODULE#5 GROWTH: Unit Economics & CAC', badge: 'MODULE#5 GROWTH', desc: 'Unit economics optimization, CAC payback, viral loops, performance marketing, and retention.' },
+        { num: '06', title: 'MODULE#6 SCALING: Operations & Hiring', badge: 'MODULE#6 SCALING', desc: 'Scaling operations, hiring core engineering/sales leadership, and regional GCC/Global expansion.' },
+        { num: '07', title: 'MODULE#7 FUNDRAISING: VC Pitch & Cap Tables', badge: 'MODULE#7 FUNDRAISING', desc: 'Mastering the VC pitch deck, SAFEs & Cap Tables, Term Sheets, and closing Pre-Seed/Seed rounds.' },
+      ];
+
+      for (const [idx, def] of defaultModulesData.entries()) {
+        if ((this.prisma as any).diplomaModule) {
+          const existing = await (this.prisma as any).diplomaModule.findFirst({
+            where: {
+              OR: [
+                { moduleNumber: def.num },
+                { moduleNumber: `m${idx}` },
+              ],
+            },
+          }).catch(() => null);
+
+          if (!existing) {
+            await (this.prisma as any).diplomaModule.create({
+              data: {
+                moduleNumber: def.num,
+                title: def.title,
+                badgeTitle: def.badge,
+                description: def.desc,
+                orderIndex: idx,
+                isPublished: true,
+              },
+            }).catch(() => {});
+          }
+        }
+      }
     } catch (err: any) {
       this.logger.warn(`Course initialization notice: ${err?.message || err}`);
     }
@@ -68,8 +104,9 @@ export class CoursesService implements OnModuleInit {
   async getDiplomaCurriculum(userId?: string) {
     const hasPurchased = await this.checkUserEnrollment(userId);
 
-    // Query explicit student module unlocks from DB if userId is present
+    // Query explicit student module & lesson unlocks from DB if userId is present
     let unlockedModuleIds: string[] = [];
+    let unlockedLessonIds: string[] = [];
     if (userId) {
       try {
         if ((this.prisma as any).studentModuleUnlock) {
@@ -77,14 +114,51 @@ export class CoursesService implements OnModuleInit {
             where: { userId },
             include: { module: true },
           });
-          unlockedModuleIds = userUnlocks.flatMap((u: any) => [
-            u.moduleId,
-            u.module?.id,
-            u.module?.moduleNumber,
-          ].filter(Boolean));
+
+          const unlockedDbIds = userUnlocks.map((u: any) => u.moduleId).filter(Boolean);
+
+          // Query matching DB modules to resolve DB UUIDs to module numbers
+          const dbMods = await (this.prisma as any).diplomaModule.findMany({
+            where: {
+              OR: [
+                { id: { in: unlockedDbIds } },
+                { moduleNumber: { in: unlockedDbIds } },
+              ],
+            },
+          }).catch(() => []);
+
+          const rawIds: string[] = [];
+          userUnlocks.forEach((u: any) => {
+            if (u.moduleId) rawIds.push(u.moduleId);
+            if (u.notes) rawIds.push(u.notes);
+            if (u.module?.id) rawIds.push(u.module.id);
+            if (u.module?.moduleNumber) rawIds.push(u.module.moduleNumber);
+          });
+
+          dbMods.forEach((dm: any) => {
+            if (dm.id) rawIds.push(dm.id);
+            if (dm.moduleNumber) {
+              rawIds.push(dm.moduleNumber);
+              rawIds.push(`m${parseInt(dm.moduleNumber, 10)}`);
+              rawIds.push(dm.moduleNumber.length === 1 ? `0${dm.moduleNumber}` : dm.moduleNumber);
+            }
+          });
+
+          unlockedModuleIds = Array.from(new Set(rawIds.map((id) => String(id).toLowerCase().trim())));
         }
       } catch (e) {
         this.logger.warn(`Fetch student module unlocks notice: ${e}`);
+      }
+
+      try {
+        if ((this.prisma as any).studentLessonUnlock) {
+          const userLessonUnlocks = await (this.prisma as any).studentLessonUnlock.findMany({
+            where: { userId },
+          });
+          unlockedLessonIds = userLessonUnlocks.map((u: any) => u.lessonId).filter(Boolean);
+        }
+      } catch (e) {
+        this.logger.warn(`Fetch student lesson unlocks notice: ${e}`);
       }
     }
 
@@ -203,22 +277,32 @@ export class CoursesService implements OnModuleInit {
         const uStr = String(unlockedId).toLowerCase().trim();
         const mIdStr = String(m.id).toLowerCase().trim();
         const mNumStr = String(m.moduleNumber || '').toLowerCase().trim();
-        return (
-          uStr === mIdStr ||
-          uStr === mNumStr ||
-          (mNumStr.length > 0 && (uStr.endsWith(mNumStr) || mNumStr.endsWith(uStr))) ||
-          (mIdStr.length > 0 && (uStr.includes(mIdStr) || mIdStr.includes(uStr)))
-        );
+
+        if (uStr === mIdStr || uStr === mNumStr) return true;
+
+        const uClean = uStr.replace(/^m|^0+/, '');
+        const mNumClean = mNumStr.replace(/^m|^0+/, '');
+        const mIdClean = mIdStr.replace(/^m|^0+/, '');
+
+        if (uClean.length > 0 && uClean.length <= 4) {
+          if (uClean === mNumClean || uClean === mIdClean) return true;
+        }
+
+        return false;
       });
 
       const isLocked = isIntro ? false : (!hasPurchased && !isExplicitlyUnlocked);
       totalLessonsCount += m.lessons?.length || 0;
 
-      const lessonsWithStatus = (m.lessons || []).map((l: any, lIdx: number) => ({
-        ...l,
-        statusTag: isLocked ? 'Locked' : lIdx === 0 ? 'Available' : 'Upcoming',
-        statusType: isLocked ? 'locked' : 'active',
-      }));
+      const lessonsWithStatus = (m.lessons || []).map((l: any, lIdx: number) => {
+        const isLessonUnlocked = !isLocked || unlockedLessonIds.includes(l.id) || unlockedLessonIds.includes(`lesson-${m.id}-${lIdx + 1}`);
+        return {
+          ...l,
+          isLocked: !isLessonUnlocked,
+          statusTag: !isLessonUnlocked ? 'Locked' : lIdx === 0 ? 'Available' : 'Active',
+          statusType: !isLessonUnlocked ? 'locked' : 'active',
+        };
+      });
 
       return {
         id: m.id,
@@ -237,6 +321,7 @@ export class CoursesService implements OnModuleInit {
       currency: 'LE',
       hasPurchased,
       unlockedModuleIds,
+      unlockedLessonIds,
       totalModules: curriculum.length,
       totalLessons: totalLessonsCount,
       modules: curriculum,

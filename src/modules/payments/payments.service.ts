@@ -56,6 +56,22 @@ export class PaymentsService {
       },
     });
 
+    // Create transaction log
+    const transactionRef = `TXN-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const paymentMethod = paymentDetails?.method || 'CARD';
+
+    await (this.prisma as any).paymentTransaction.create({
+      data: {
+        userId,
+        courseId: 'venture-architect-diploma',
+        amount: 5000,
+        currency: 'LE',
+        paymentMethod,
+        transactionRef,
+        status: 'SUCCESS',
+      },
+    }).catch((err: any) => console.error('Failed to log payment transaction:', err));
+
     // Broadcast real-time access update
     this.eventsGateway.emitDiplomaAccessUpdated(userId, {
       userId,
@@ -67,6 +83,7 @@ export class PaymentsService {
     return {
       message: 'تم شراء وتفعيل الدبلومة بنجاح بمبلغ 5,000 ج.م',
       enrollment,
+      transactionRef,
       hasPurchasedDiploma: true,
     };
   }

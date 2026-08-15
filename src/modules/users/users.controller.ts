@@ -65,6 +65,11 @@ export class UsersController {
     return this.usersService.unlockStudentModule(dto, req.user.id);
   }
 
+  @Post('admin/unlock-lesson')
+  async unlockLesson(@Request() req: any, @Body() dto: { userId: string; lessonId: string; unlock: boolean; notes?: string }) {
+    return this.usersService.unlockStudentLesson(dto, req.user.id);
+  }
+
   @Post('admin/assign-content')
   async assignContent(@Request() req: any, @Body() dto: { userId: string; title: string; description: string; attachmentUrl?: string; dueDate?: string }) {
     return this.coursesServiceAssignContent(req, dto);

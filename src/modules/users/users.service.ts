@@ -303,24 +303,29 @@ export class UsersService {
     let moduleTitle = '';
 
     try {
+      // Normalize module number (e.g., "m1" -> "01", "intro" -> "00", "01" -> "01")
+      let normalizedNumber = dto.moduleId;
+      if (dto.moduleId === 'intro') normalizedNumber = '00';
+      else if (dto.moduleId.startsWith('m')) normalizedNumber = dto.moduleId.replace('m', '0');
+
       // 1. Attempt to find matching DiplomaModule record in DB
       let targetModule = await (this.prisma as any).diplomaModule.findFirst({
         where: {
           OR: [
             { id: dto.moduleId },
             { moduleNumber: dto.moduleId },
-            { moduleNumber: dto.moduleId.replace('m', '0') },
+            { moduleNumber: normalizedNumber },
             { moduleNumber: `0${dto.moduleId.replace('m', '')}` },
           ],
         },
       }).catch(() => null);
 
-      // 2. If module not in DB yet (e.g. unseeded or custom), auto-create module record to avoid foreign key failure
+      // 2. Auto-create or seed module record if not in DB yet to guarantee FK integrity
       if (!targetModule) {
         try {
           targetModule = await (this.prisma as any).diplomaModule.create({
             data: {
-              moduleNumber: dto.moduleId,
+              moduleNumber: normalizedNumber,
               title: `MODULE#${dto.moduleId.toUpperCase()}`,
               badgeTitle: `MODULE#${dto.moduleId.toUpperCase()}`,
               description: `Venture Architect Module ${dto.moduleId}`,
@@ -348,15 +353,15 @@ export class UsersService {
             },
             update: {
               unlockedBy: adminUserId,
-              notes: dto.notes || '',
+              notes: dto.notes || `Unlocked module ${normalizedNumber}`,
             },
             create: {
               userId: dto.userId,
               moduleId: targetModuleId,
               unlockedBy: adminUserId,
-              notes: dto.notes || '',
+              notes: dto.notes || `Unlocked module ${normalizedNumber}`,
             },
-          });
+          }).catch(() => {});
         }
       } else {
         if ((this.prisma as any).studentModuleUnlock) {
@@ -365,7 +370,7 @@ export class UsersService {
               userId: dto.userId,
               moduleId: targetModuleId,
             },
-          });
+          }).catch(() => {});
         }
       }
 
@@ -374,6 +379,7 @@ export class UsersService {
         userId: dto.userId,
         moduleId: targetModuleId,
         originalModuleId: dto.moduleId,
+        moduleNumber: normalizedNumber,
         isUnlocked: dto.unlock,
         moduleTitle: moduleTitle || dto.moduleId,
         notes: dto.notes,
@@ -383,6 +389,55 @@ export class UsersService {
     } catch (e: any) {
       this.logger.error(`Unlock module error: ${e?.message || e}`);
       throw new BadRequestException(`Failed to update module unlock: ${e?.message || e}`);
+    }
+  }
+
+  async unlockStudentLesson(dto: { userId: string; lessonId: string; unlock: boolean; notes?: string }, adminUserId: string) {
+    const targetLessonId = dto.lessonId;
+    try {
+      if (dto.unlock) {
+        if ((this.prisma as any).studentLessonUnlock) {
+          await (this.prisma as any).studentLessonUnlock.upsert({
+            where: {
+              userId_lessonId: {
+                userId: dto.userId,
+                lessonId: targetLessonId,
+              },
+            },
+            update: {
+              unlockedBy: adminUserId,
+              notes: dto.notes || `Unlocked lesson ${targetLessonId}`,
+            },
+            create: {
+              userId: dto.userId,
+              lessonId: targetLessonId,
+              unlockedBy: adminUserId,
+              notes: dto.notes || `Unlocked lesson ${targetLessonId}`,
+            },
+          }).catch(() => {});
+        }
+      } else {
+        if ((this.prisma as any).studentLessonUnlock) {
+          await (this.prisma as any).studentLessonUnlock.deleteMany({
+            where: {
+              userId: dto.userId,
+              lessonId: targetLessonId,
+            },
+          }).catch(() => {});
+        }
+      }
+
+      // Broadcast real-time WebSocket update
+      this.eventsGateway.emitModuleAccessUpdated(dto.userId, {
+        userId: dto.userId,
+        lessonId: targetLessonId,
+        isUnlocked: dto.unlock,
+      });
+
+      return this.getStudentFullDetail(dto.userId);
+    } catch (e: any) {
+      this.logger.error(`Unlock lesson error: ${e?.message || e}`);
+      throw new BadRequestException(`Failed to update lesson unlock: ${e?.message || e}`);
     }
   }
 
@@ -430,6 +485,7 @@ export class UsersService {
     if (!user) throw new NotFoundException('Student not found');
 
     let unlockedModules: any[] = [];
+    let unlockedLessons: any[] = [];
     let customAssignments: any[] = [];
     let lessonProgress: any[] = [];
 
@@ -438,6 +494,15 @@ export class UsersService {
         unlockedModules = await (this.prisma as any).studentModuleUnlock.findMany({
           where: { userId: studentId },
           include: { module: true },
+        }).catch(() => []);
+      }
+    } catch (e) {}
+
+    try {
+      if ((this.prisma as any).studentLessonUnlock) {
+        unlockedLessons = await (this.prisma as any).studentLessonUnlock.findMany({
+          where: { userId: studentId },
+          include: { lesson: true },
         }).catch(() => []);
       }
     } catch (e) {}
@@ -463,6 +528,7 @@ export class UsersService {
     return {
       ...userWithoutPassword,
       unlockedModules,
+      unlockedLessons,
       customAssignments,
       lessonProgress,
     };
