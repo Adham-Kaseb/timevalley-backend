@@ -376,3 +376,22 @@ model PasswordResetToken {
   @@index([email])
   @@index([token])
 }
+
+model ConsultationCard {
+  id               String   @id @default(uuid())
+  title            String
+  consultantName   String   @default("Dr. Wael")
+  consultantTitle  String   @default("Founder & Managing Partner")
+  consultantAvatar String?
+  category         String   @default("Venture Strategy")
+  description      String
+  duration         String   @default("45 Mins")
+  price            Float    @default(0)
+  currency         String   @default("USD")
+  bookingUrl       String?
+  tags             Json?
+  isPublished      Boolean  @default(true)
+  orderIndex       Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}

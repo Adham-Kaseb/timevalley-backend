@@ -14,6 +14,7 @@ import { EventsModule } from './modules/events/events.module';
 import { ResourcesModule } from './modules/resources/resources.module';
 import { IdeationModule } from './modules/ideation/ideation.module';
 import { CouponsModule } from './modules/coupons/coupons.module';
+import { ConsultationsModule } from './modules/consultations/consultations.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { CouponsModule } from './modules/coupons/coupons.module';
     ResourcesModule,
     IdeationModule,
     CouponsModule,
+    ConsultationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
