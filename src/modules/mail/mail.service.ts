@@ -18,6 +18,13 @@ export interface ContactUsPayload {
   message: string;
 }
 
+export interface PasswordResetPayload {
+  email: string;
+  name: string;
+  code: string;
+  token: string;
+}
+
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
@@ -127,6 +134,108 @@ export class MailService {
     } catch (error: unknown) {
       const errMessage = error instanceof Error ? error.message : String(error);
       this.logger.warn(`Failed to send contact email to ${adminEmail}: ${errMessage}`);
+    }
+  }
+
+  /**
+   * Sends a styled HTML Password Reset verification email containing a 6-digit OTP code and direct reset link.
+   */
+  async sendPasswordResetEmail(payload: PasswordResetPayload): Promise<void> {
+    const { user, pass } = this.getDynamicEnv();
+
+    this.logger.log(
+      `[PASSWORD RESET CODE] Generated OTP for ${payload.email}: Code [ ${payload.code} ]`
+    );
+
+    if (!pass) {
+      this.logger.warn(
+        `[Mail System] SMTP_PASS is empty in .env. Password reset email logged to console above.`
+      );
+      return;
+    }
+
+    const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Password Reset Request - TimeValley</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f2f6f7; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: left;">
+  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f2f6f7; padding: 40px 12px;">
+    <tr>
+      <td align="center">
+        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 620px; background-color: #ffffff; border-radius: 28px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 20px 45px rgba(14, 104, 117, 0.12);">
+          <tr>
+            <td style="height: 5px; background: linear-gradient(90deg, #EDA296 0%, #0E6875 50%, #148393 100%);"></td>
+          </tr>
+          <tr>
+            <td style="background-color: #0E6875; background: linear-gradient(135deg, #072F35 0%, #0E6875 60%, #148393 100%); padding: 40px 30px; text-align: center; color: #ffffff;">
+              <div style="font-size: 28px; font-weight: 900; letter-spacing: 2px; color: #ffffff; text-transform: uppercase;">
+                TIMEVALLEY
+              </div>
+              <div style="font-size: 13px; color: #e6f3f5; margin-top: 6px; font-weight: 600;">
+                🔑 Password Reset & Account Recovery
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 36px 32px; background-color: #ffffff;">
+              <span style="display: inline-block; background-color: #E6F3F5; color: #0E6875; font-size: 12px; font-weight: 800; padding: 6px 16px; border-radius: 50px; margin-bottom: 20px;">
+                🔒 Security Verification
+              </span>
+              <h2 style="margin: 0 0 12px 0; font-size: 20px; font-weight: 800; color: #0f172a;">
+                Hello ${payload.name || 'Student'},
+              </h2>
+              <p style="margin: 0 0 24px 0; font-size: 14px; color: #475569; line-height: 1.6;">
+                We received a request to reset your password for your TimeValley account (<strong style="color: #0E6875;">${payload.email}</strong>). Use the 6-digit verification code below to restore your password on the platform:
+              </p>
+
+              <!-- 6-Digit OTP Code Display Box -->
+              <div style="background-color: #FAF0E9; border: 2px dashed #0E6875; border-radius: 20px; padding: 24px; text-align: center; margin-bottom: 28px;">
+                <div style="font-size: 12px; font-weight: 800; color: #0E6875; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">
+                  Your 6-Digit Security OTP Code
+                </div>
+                <div style="font-size: 36px; font-weight: 900; letter-spacing: 10px; color: #0E6875; font-family: monospace;">
+                  ${payload.code}
+                </div>
+                <div style="font-size: 11px; font-weight: 600; color: #64748b; margin-top: 8px;">
+                  Expires in 100 seconds • Do not share this code with anyone
+                </div>
+              </div>
+
+              <p style="font-size: 12px; color: #94a3b8; line-height: 1.5; margin: 0;">
+                If you did not request a password reset, you can safely ignore this email. Your password will remain unchanged.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+    const subjectHeader = `=?UTF-8?B?${Buffer.from(`🔑 Reset Your TimeValley Password (Code: ${payload.code})`).toString('base64')}?=`;
+
+    const rawMail = [
+      `From: "TimeValley Security" <${user}>`,
+      `To: <${payload.email}>`,
+      `Subject: ${subjectHeader}`,
+      `MIME-Version: 1.0`,
+      `Content-Type: text/html; charset="UTF-8"`,
+      `Content-Transfer-Encoding: 8bit`,
+      ``,
+      htmlContent,
+    ].join('\r\n');
+
+    try {
+      this.logger.log(`Dispatching password reset email to ${payload.email}...`);
+      await this.sendSmtpNative(user, pass, payload.email, rawMail);
+      this.logger.log(`[Success] Password reset email sent to ${payload.email}!`);
+    } catch (error: unknown) {
+      const errMessage = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Failed to send password reset email to ${payload.email}: ${errMessage}`);
     }
   }
 
