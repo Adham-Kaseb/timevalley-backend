@@ -8,8 +8,8 @@ try {
   webpush = null;
 }
 
-export const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMe5xWqAOFB1V4i7lF0Jv_o-3Wn1p_nF0R_1_0_0_0_0';
-export const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || 'K9a0x7Q8v_mYp8_7qA0X7Q8v_mYp8_7qA0X7Q8v_mY';
+export const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || 'BGztqbsQYPwwK9b0Qinw--Nsq_DL5jVUD1oTYwIlycYCBqcJ8PffysmbjFOPMd_4_5QbALXHXqgaLJvM6XJvbLg';
+export const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || 'tcc3UABamFeMZ4jj26DWsq_GX_cSaRlwqnjdjXt5_7c';
 export const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:support@timevalley.com';
 
 @Injectable()
