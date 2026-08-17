@@ -42,6 +42,7 @@ model User {
   marketCalculations  MarketResearchCalculation[]
   quizResults         StudentQuizResult[]
   paymentTransactions PaymentTransaction[]
+  pushSubscriptions   PushSubscription[]
 }
 
 model AdminPermission {
@@ -395,3 +396,28 @@ model ConsultationCard {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 }
+
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model PushNotificationLog {
+  id         String   @id @default(uuid())
+  title      String
+  body       String
+  targetUrl  String?
+  sentBy     String
+  recipients Int      @default(0)
+  status     String   @default("SENT")
+  createdAt  DateTime @default(now())
+}
+

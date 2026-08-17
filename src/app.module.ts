@@ -15,6 +15,7 @@ import { ResourcesModule } from './modules/resources/resources.module';
 import { IdeationModule } from './modules/ideation/ideation.module';
 import { CouponsModule } from './modules/coupons/coupons.module';
 import { ConsultationsModule } from './modules/consultations/consultations.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { ConsultationsModule } from './modules/consultations/consultations.modul
     IdeationModule,
     CouponsModule,
     ConsultationsModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
