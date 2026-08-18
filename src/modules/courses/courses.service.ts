@@ -1,5 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { CertificatesService } from '../certificates/certificates.service';
 import { CreateModuleDto, UpdateModuleDto } from './dto/admin-module.dto';
 import { CreateLessonDto, UpdateLessonDto } from './dto/admin-lesson.dto';
 
@@ -31,7 +32,10 @@ export interface DiplomaModule {
 export class CoursesService implements OnModuleInit {
   private readonly logger = new Logger(CoursesService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly certificatesService: CertificatesService,
+  ) {}
 
   async onModuleInit() {
     try {
@@ -474,8 +478,9 @@ export class CoursesService implements OnModuleInit {
       },
     }).catch(() => null);
 
+    let progressResult;
     if (existing) {
-      return (this.prisma as any).studentLessonProgress.update({
+      progressResult = await (this.prisma as any).studentLessonProgress.update({
         where: { id: existing.id },
         data: {
           isCompleted,
@@ -483,17 +488,25 @@ export class CoursesService implements OnModuleInit {
           completedAt: isCompleted ? new Date() : existing.completedAt,
         },
       });
+    } else {
+      progressResult = await (this.prisma as any).studentLessonProgress.create({
+        data: {
+          userId,
+          lessonId,
+          isCompleted,
+          watchDurationSec,
+          completedAt: isCompleted ? new Date() : null,
+        },
+      });
     }
 
-    return (this.prisma as any).studentLessonProgress.create({
-      data: {
-        userId,
-        lessonId,
-        isCompleted,
-        watchDurationSec,
-        completedAt: isCompleted ? new Date() : null,
-      },
-    });
+    if (isCompleted) {
+      this.certificatesService.checkAndIssueIfCompleted(userId).catch((err) => {
+        this.logger.warn(`Auto cert check error: ${err?.message || err}`);
+      });
+    }
+
+    return progressResult;
   }
 
   async getStudentProgress(userId: string) {

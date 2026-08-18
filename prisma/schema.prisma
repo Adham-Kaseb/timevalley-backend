@@ -58,11 +58,18 @@ model AdminPermission {
 model Certificate {
   id            String   @id @default(uuid())
   title         String
-  issueDate     DateTime @default(now())
+  type          String   @default("DIPLOMA")
+  courseId      String   @default("venture-architect-diploma")
   code          String   @unique
+  issueDate     DateTime @default(now())
   credentialUrl String?
+  pdfUrl        String?
+  metadata      Json?
   userId        String
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([code])
+  @@index([userId, courseId])
 }
 
 model Enrollment {

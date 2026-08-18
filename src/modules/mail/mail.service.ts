@@ -25,6 +25,16 @@ export interface PasswordResetPayload {
   token: string;
 }
 
+export interface CertificateIssuedPayload {
+  name: string;
+  email: string;
+  certificateTitle: string;
+  serialNumber: string;
+  issueDate: string;
+  downloadUrl?: string;
+  verifyUrl: string;
+}
+
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
@@ -462,6 +472,123 @@ export class MailService {
     } catch (error: unknown) {
       const errMessage = error instanceof Error ? error.message : String(error);
       this.logger.warn(`Failed to send email notification to admin (${adminEmail}): ${errMessage}.`);
+    }
+  }
+
+  /**
+   * Dispatches a celebratory Certificate Email to the student upon completing course/diploma
+   */
+  async sendCertificateIssuedEmail(payload: CertificateIssuedPayload): Promise<void> {
+    const { user, pass } = this.getDynamicEnv();
+
+    if (!pass) {
+      this.logger.warn(
+        `[Mail System] Cannot dispatch Certificate email to ${payload.email}. SMTP_PASS is empty in .env. ` +
+        `Certificate Code: [${payload.serialNumber}] for ${payload.name}`
+      );
+      return;
+    }
+
+    const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Congratulations on your Certificate - TimeValley</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f2f6f7; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: left;">
+  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f2f6f7; padding: 40px 12px;">
+    <tr>
+      <td align="center">
+        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 620px; background-color: #ffffff; border-radius: 28px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 20px 45px rgba(14, 104, 117, 0.12);">
+          <tr>
+            <td style="height: 6px; background: linear-gradient(90deg, #EDA296 0%, #0E6875 50%, #D97706 100%);"></td>
+          </tr>
+          <tr>
+            <td style="background-color: #0E6875; background: linear-gradient(135deg, #072F35 0%, #0E6875 60%, #148393 100%); padding: 40px 30px; text-align: center; color: #ffffff;">
+              <div style="font-size: 36px; margin-bottom: 10px;">🎓</div>
+              <div style="font-size: 26px; font-weight: 900; letter-spacing: 2px; color: #ffffff; text-transform: uppercase;">
+                TIMEVALLEY INSTITUTE
+              </div>
+              <div style="font-size: 14px; color: #e6f3f5; margin-top: 6px; font-weight: 600;">
+                Official Certificate of Accomplishment
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 36px 32px; background-color: #ffffff;">
+              <span style="display: inline-block; background-color: #FEF3C7; color: #92400E; font-size: 12px; font-weight: 800; padding: 6px 16px; border-radius: 50px; margin-bottom: 20px; border: 1px solid #FDE68A;">
+                🏆 Verified Credential Issued
+              </span>
+              <h2 style="margin: 0 0 12px 0; font-size: 22px; font-weight: 800; color: #0f172a;">
+                Congratulations, ${payload.name}!
+              </h2>
+              <p style="margin: 0 0 24px 0; font-size: 15px; color: #475569; line-height: 1.6;">
+                You have successfully fulfilled all graduation requirements and demonstrated excellence in <strong>${payload.certificateTitle}</strong>.
+              </p>
+
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #FAF0E9; border-left: 5px solid #0E6875; border-radius: 16px; padding: 20px; margin-bottom: 24px;">
+                <tr>
+                  <td style="padding: 6px 0; font-size: 13px; font-weight: 700; color: #64748b; width: 140px;">Recipient Name:</td>
+                  <td style="padding: 6px 0; font-size: 15px; font-weight: 800; color: #0E6875;">${payload.name}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; font-size: 13px; font-weight: 700; color: #64748b;">Serial Code:</td>
+                  <td style="padding: 6px 0; font-size: 14px; font-weight: 800; color: #0f172a; font-family: monospace;">${payload.serialNumber}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; font-size: 13px; font-weight: 700; color: #64748b;">Issue Date:</td>
+                  <td style="padding: 6px 0; font-size: 14px; font-weight: 700; color: #334155;">${payload.issueDate}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; font-size: 13px; font-weight: 700; color: #64748b;">Verification Portal:</td>
+                  <td style="padding: 6px 0; font-size: 13px; font-weight: 700;">
+                    <a href="${payload.verifyUrl}" style="color: #0E6875; text-decoration: underline;">Verify Credential Online</a>
+                  </td>
+                </tr>
+              </table>
+
+              <div style="text-align: center; margin-top: 30px; margin-bottom: 10px;">
+                <a href="${payload.verifyUrl}" style="display: inline-block; background-color: #0E6875; color: #ffffff; font-size: 14px; font-weight: 800; padding: 14px 32px; border-radius: 14px; text-decoration: none; box-shadow: 0 10px 20px rgba(14, 104, 117, 0.25);">
+                  📜 View & Download Certificate
+                </a>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color: #f8fafc; padding: 24px 30px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9; line-height: 1.7;">
+              <strong style="color: #64748b;">TimeValley Venture Builder & Educational Hub</strong><br>
+              Direct Verification Link: <a href="${payload.verifyUrl}" style="color: #0E6875;">${payload.verifyUrl}</a><br>
+              جميع الحقوق محفوظة © ${new Date().getFullYear()} TimeValley Inc.
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+    const subjectHeader = `=?UTF-8?B?${Buffer.from(`🎓 تهانينا! تمت إتاحة شهادتك المعتمدة: ${payload.certificateTitle}`).toString('base64')}?=`;
+
+    const rawMail = [
+      `From: "TimeValley Credentials" <${user}>`,
+      `To: <${payload.email}>`,
+      `Subject: ${subjectHeader}`,
+      `MIME-Version: 1.0`,
+      `Content-Type: text/html; charset="UTF-8"`,
+      `Content-Transfer-Encoding: 8bit`,
+      ``,
+      htmlContent,
+    ].join('\r\n');
+
+    try {
+      this.logger.log(`Dispatching Certificate Email to ${payload.email} for [${payload.serialNumber}]...`);
+      await this.sendSmtpNative(user, pass, payload.email, rawMail);
+      this.logger.log(`[Success] Certificate email successfully sent to ${payload.email}!`);
+    } catch (error: unknown) {
+      const errMessage = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Failed to send Certificate email to ${payload.email}: ${errMessage}.`);
     }
   }
 

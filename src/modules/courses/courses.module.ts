@@ -3,10 +3,12 @@ import { CoursesController } from './courses.controller';
 import { CoursesService } from './courses.service';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { JwtModule } from '@nestjs/jwt';
+import { CertificatesModule } from '../certificates/certificates.module';
 
 @Module({
   imports: [
     PrismaModule,
+    CertificatesModule,
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'timevalley_jwt_secret_key_2026',
     }),

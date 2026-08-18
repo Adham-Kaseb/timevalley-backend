@@ -94,10 +94,6 @@ export class UsersService {
 
   async listAllUsersForAdmin() {
     const users = await (this.prisma as any).user.findMany({
-      where: {
-        role: { not: 'SUPER_ADMIN' },
-        email: { not: 'adhamkasebssj4@gmail.com' },
-      },
       select: {
         id: true,
         name: true,
@@ -532,5 +528,20 @@ export class UsersService {
       customAssignments,
       lessonProgress,
     };
+  }
+
+  /**
+   * ADMIN: Reset all lesson progress records for a student account
+   */
+  async resetStudentProgress(studentId: string) {
+    try {
+      if ((this.prisma as any).studentLessonProgress) {
+        await (this.prisma as any).studentLessonProgress.deleteMany({
+          where: { userId: studentId },
+        }).catch(() => {});
+      }
+    } catch (e) {}
+
+    return this.getStudentFullDetail(studentId);
   }
 }

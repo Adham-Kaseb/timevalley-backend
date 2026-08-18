@@ -83,4 +83,9 @@ export class UsersController {
   async getStudentDetail(@Param('id') id: string) {
     return this.usersService.getStudentFullDetail(id);
   }
+
+  @Post('admin/reset-progress/:id')
+  async resetStudentProgress(@Param('id') id: string) {
+    return this.usersService.resetStudentProgress(id);
+  }
 }

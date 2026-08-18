@@ -16,6 +16,7 @@ import { IdeationModule } from './modules/ideation/ideation.module';
 import { CouponsModule } from './modules/coupons/coupons.module';
 import { ConsultationsModule } from './modules/consultations/consultations.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { CertificatesModule } from './modules/certificates/certificates.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     CouponsModule,
     ConsultationsModule,
     NotificationsModule,
+    CertificatesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
