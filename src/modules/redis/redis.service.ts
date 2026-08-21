@@ -1,66 +1,100 @@
-import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import Redis from 'ioredis';
 
 @Injectable()
 export class RedisService implements OnModuleInit, OnModuleDestroy {
-  private client: Redis;
+  private readonly logger = new Logger(RedisService.name);
+  private client: Redis | null = null;
+  private isConnected = false;
+  private inMemoryFallback = new Map<string, { value: string; expiresAt: number }>();
 
   onModuleInit() {
     const host = process.env.REDIS_HOST || 'localhost';
     const port = Number(process.env.REDIS_PORT) || 6379;
     const password = process.env.REDIS_PASSWORD || undefined;
 
-    this.client = new Redis({
-      host,
-      port,
-      password,
-      lazyConnect: true,
-      retryStrategy(times) {
-        return Math.min(times * 100, 3000);
-      },
-    });
+    try {
+      this.client = new Redis({
+        host,
+        port,
+        password,
+        lazyConnect: true,
+        maxRetriesPerRequest: 1,
+        retryStrategy(times) {
+          if (times > 2) return null;
+          return Math.min(times * 150, 1000);
+        },
+      });
 
-    this.client.connect().catch((err: Error) => {
-      console.warn('Redis connection failed:', err.message);
-    });
-  }
+      this.client.on('error', () => {
+        this.isConnected = false;
+      });
 
-  async onModuleDestroy() {
-    if (this.client) {
-      await this.client.quit();
+      this.client.on('connect', () => {
+        this.isConnected = true;
+        this.logger.log('Redis connected successfully.');
+      });
+
+      this.client.connect().catch(() => {
+        this.isConnected = false;
+        this.logger.log('Redis server not detected at localhost:6379. Using in-memory fallback storage.');
+      });
+    } catch {
+      this.isConnected = false;
     }
   }
 
-  getClient(): Redis {
+  async onModuleDestroy() {
+    if (this.client && this.isConnected) {
+      await this.client.quit().catch(() => {});
+    }
+  }
+
+  getClient(): Redis | null {
     return this.client;
   }
 
   async setUserSession(userId: string, token: string, ttlSeconds = 86400): Promise<void> {
-    try {
-      const key = `session:${userId}`;
-      await this.client.set(key, token, 'EX', ttlSeconds);
-    } catch (err: any) {
-      console.warn('Redis setUserSession warning:', err?.message || err);
+    const key = `session:${userId}`;
+    if (this.isConnected && this.client) {
+      try {
+        await this.client.set(key, token, 'EX', ttlSeconds);
+        return;
+      } catch {}
     }
+    // In-memory fallback
+    this.inMemoryFallback.set(key, {
+      value: token,
+      expiresAt: Date.now() + ttlSeconds * 1000,
+    });
   }
 
   async getUserSession(userId: string): Promise<string | null> {
-    try {
-      const key = `session:${userId}`;
-      return await this.client.get(key);
-    } catch (err: any) {
-      console.warn('Redis getUserSession warning:', err?.message || err);
+    const key = `session:${userId}`;
+    if (this.isConnected && this.client) {
+      try {
+        return await this.client.get(key);
+      } catch {}
+    }
+    // In-memory fallback
+    const item = this.inMemoryFallback.get(key);
+    if (!item) return null;
+    if (Date.now() > item.expiresAt) {
+      this.inMemoryFallback.delete(key);
       return null;
     }
+    return item.value;
   }
 
   async removeUserSession(userId: string): Promise<number> {
-    try {
-      const key = `session:${userId}`;
-      return await this.client.del(key);
-    } catch (err: any) {
-      console.warn('Redis removeUserSession warning:', err?.message || err);
-      return 0;
+    const key = `session:${userId}`;
+    if (this.isConnected && this.client) {
+      try {
+        return await this.client.del(key);
+      } catch {}
     }
+    // In-memory fallback
+    return this.inMemoryFallback.delete(key) ? 1 : 0;
   }
 }
+

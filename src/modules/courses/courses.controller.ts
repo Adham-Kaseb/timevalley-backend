@@ -4,8 +4,10 @@ import { JwtService } from '@nestjs/jwt';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { RequirePermission } from '../auth/decorators/permissions.decorator';
 import { CreateModuleDto, UpdateModuleDto } from './dto/admin-module.dto';
 import { CreateLessonDto, UpdateLessonDto } from './dto/admin-lesson.dto';
+
 
 @Controller('courses')
 export class CoursesController {
@@ -37,6 +39,7 @@ export class CoursesController {
 
   @UseGuards(JwtAuthGuard, AdminGuard)
   @Roles('SUPER_ADMIN', 'ADMIN')
+  @RequirePermission('MANAGE_DIPLOMAS')
   @Post('admin/modules')
   async createModule(@Body() dto: CreateModuleDto) {
     return this.coursesService.createModule(dto);
@@ -44,6 +47,7 @@ export class CoursesController {
 
   @UseGuards(JwtAuthGuard, AdminGuard)
   @Roles('SUPER_ADMIN', 'ADMIN')
+  @RequirePermission('MANAGE_DIPLOMAS')
   @Patch('admin/modules/:id')
   async updateModule(@Param('id') id: string, @Body() dto: UpdateModuleDto) {
     return this.coursesService.updateModule(id, dto);
@@ -51,6 +55,7 @@ export class CoursesController {
 
   @UseGuards(JwtAuthGuard, AdminGuard)
   @Roles('SUPER_ADMIN', 'ADMIN')
+  @RequirePermission('MANAGE_DIPLOMAS')
   @Delete('admin/modules/:id')
   async deleteModule(@Param('id') id: string) {
     return this.coursesService.deleteModule(id);
@@ -58,6 +63,7 @@ export class CoursesController {
 
   @UseGuards(JwtAuthGuard, AdminGuard)
   @Roles('SUPER_ADMIN', 'ADMIN')
+  @RequirePermission('MANAGE_DIPLOMAS')
   @Post('admin/lessons')
   async createLesson(@Body() dto: CreateLessonDto) {
     return this.coursesService.createLesson(dto);
@@ -65,6 +71,7 @@ export class CoursesController {
 
   @UseGuards(JwtAuthGuard, AdminGuard)
   @Roles('SUPER_ADMIN', 'ADMIN')
+  @RequirePermission('MANAGE_DIPLOMAS')
   @Patch('admin/lessons/:id')
   async updateLesson(@Param('id') id: string, @Body() dto: UpdateLessonDto) {
     return this.coursesService.updateLesson(id, dto);
@@ -72,10 +79,12 @@ export class CoursesController {
 
   @UseGuards(JwtAuthGuard, AdminGuard)
   @Roles('SUPER_ADMIN', 'ADMIN')
+  @RequirePermission('MANAGE_DIPLOMAS')
   @Delete('admin/lessons/:id')
   async deleteLesson(@Param('id') id: string) {
     return this.coursesService.deleteLesson(id);
   }
+
 
   // --- MODULE RESOURCES & PLAYBOOKS ENDPOINTS ---
 
