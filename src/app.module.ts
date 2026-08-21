@@ -18,6 +18,7 @@ import { ConsultationsModule } from './modules/consultations/consultations.modul
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { CertificatesModule } from './modules/certificates/certificates.module';
 import { BunnyModule } from './modules/bunny/bunny.module';
+import { AssistantModule } from './modules/assistant/assistant.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { BunnyModule } from './modules/bunny/bunny.module';
     NotificationsModule,
     CertificatesModule,
     BunnyModule,
+    AssistantModule,
   ],
   controllers: [AppController],
   providers: [AppService],
